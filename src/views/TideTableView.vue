@@ -111,6 +111,8 @@ const getCurrentLocation = async () => {
   navigator.geolocation.getCurrentPosition(
     async (position) => {
       const { latitude, longitude } = position.coords
+      // Clear the select input when using current location
+      selectedStationId.value = ''
       tideStore.setLocation(latitude, longitude, 'Current Location')
       await tideStore.fetchTideData(latitude, longitude, tideStore.selectedDate)
     },

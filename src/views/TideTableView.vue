@@ -128,7 +128,8 @@ const onCityChange = async () => {
   const station = tideStations.value.find(s => s.id === selectedStationId.value)
   if (station) {
     tideStore.setLocation(station.lat, station.lon, station.name)
-    await tideStore.fetchTideData(station.lat, station.lon, tideStore.selectedDate)
+    // Use location ID directly, skip POI endpoint
+    await tideStore.fetchTideDataByLocationId(station.id, station.name, tideStore.selectedDate)
   }
 }
 

@@ -70,11 +70,53 @@ This serves the production build locally for testing before deployment.
 
 ## Deployment to Server
 
+### Quick Deploy with rsync
+
+The fastest way to sync your `dist` folder to the server:
+
+#### 1. Build the application
+
+```bash
+npm run build
+```
+
+#### 2. Make the deploy script executable
+
+```bash
+chmod +x deploy.sh
+```
+
+#### 3. Deploy using the script
+
+```bash
+REMOTE_HOST=your-server.com REMOTE_USER=root REMOTE_PATH=/var/www/tidetable ./deploy.sh
+```
+
+#### 3. Or use rsync directly (one-liner)
+
+```bash
+rsync -avz --delete dist/ root@your-server.com:/var/www/tidetable/
+```
+
+**rsync options explained:**
+- `-a`: Archive mode (preserves permissions, timestamps)
+- `-v`: Verbose output
+- `-z`: Compress during transfer
+- `--delete`: Remove files on remote that don't exist locally
+- `dist/`: Source folder (note the trailing slash - syncs contents)
+- `root@your-server.com:/var/www/tidetable/`: Destination
+
+#### 4. For subsequent deployments (faster)
+
+```bash
+npm run build && rsync -avz --delete dist/ root@your-server.com:/var/www/tidetable/
+```
+
 ### Option 1: Static File Hosting (Recommended)
 
 The `dist/` folder contains static files that can be served by any web server.
 
-#### Using Nginx
+#### Using Nginx (with API Proxy)
 
 ```nginx
 server {
@@ -87,6 +129,23 @@ server {
     # Handle SPA routing - redirect all requests to index.html
     location / {
         try_files $uri $uri/ /index.html;
+    }
+
+    # Proxy API requests to QWeather
+    location /geo/ {
+        proxy_pass https://pd78kymwkm.re.qweatherapi.com/geo/;
+        proxy_set_header Host pd78kymwkm.re.qweatherapi.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /v7/ {
+        proxy_pass https://pd78kymwkm.re.qweatherapi.com/v7/;
+        proxy_set_header Host pd78kymwkm.re.qweatherapi.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # Cache static assets
@@ -103,15 +162,45 @@ server {
 }
 ```
 
-#### Using Apache
+#### Using Apache (with API Proxy)
 
 ```apache
-<Directory /var/www/tidetable/dist>
-    Options -MultiViews
-    RewriteEngine On
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.html [QSA,L]
-</Directory>
+<VirtualHost *:80>
+    ServerName your-domain.com
+    DocumentRoot /var/www/tidetable/dist
+
+    <Directory /var/www/tidetable/dist>
+        Options -MultiViews
+        RewriteEngine On
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteRule ^ index.html [QSA,L]
+    </Directory>
+
+    # Proxy API requests to QWeather
+    ProxyPreserveHost On
+    ProxyPass /geo/ https://pd78kymwkm.re.qweatherapi.com/geo/
+    ProxyPassReverse /geo/ https://pd78kymwkm.re.qweatherapi.com/geo/
+
+    ProxyPass /v7/ https://pd78kymwkm.re.qweatherapi.com/v7/
+    ProxyPassReverse /v7/ https://pd78kymwkm.re.qweatherapi.com/v7/
+
+    # Cache headers for static assets
+    <FilesMatch "\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+
+    <FilesMatch "^index\.html$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </FilesMatch>
+</VirtualHost>
+```
+
+**Note**: Enable Apache modules:
+```bash
+a2enmod proxy
+a2enmod proxy_http
+a2enmod rewrite
+a2enmod headers
 ```
 
 #### Using Node.js (Express)
@@ -168,15 +257,22 @@ docker run -p 3000:80 tidetable
 
 ## Important Configuration Notes
 
-### 1. API Proxy
+### 1. API Proxy Configuration
 
-The development server includes a proxy for QWeather API calls. For production:
+**Development**: The Vite dev server (`npm run dev`) includes a built-in proxy configured in `vite.config.js` that forwards requests to the QWeather API endpoint.
 
-- **Option A**: Use a backend proxy server to handle API requests
-- **Option B**: Configure CORS on your server to allow direct API calls
-- **Option C**: Set up a reverse proxy (Nginx/Apache) to forward API requests
+**Production**: The built files in `dist/` are static and don't include the dev server proxy. You MUST set up a reverse proxy on your web server to forward API requests to QWeather.
 
-Update `vite.config.js` if needed for production proxy configuration.
+**Why?** The browser cannot make direct requests to `https://pd78kymwkm.re.qweatherapi.com` due to CORS restrictions. The reverse proxy acts as an intermediary:
+
+```
+Browser → Your Server (/geo, /v7) → QWeather API
+```
+
+**Configuration**:
+- Use the Nginx or Apache configurations provided above
+- The proxy forwards `/geo/*` and `/v7/*` requests to `https://pd78kymwkm.re.qweatherapi.com`
+- The `changeOrigin` header ensures the QWeather API sees requests from the correct host
 
 ### 2. Environment Variables
 

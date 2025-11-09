@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getTideData } from '@/utils/api'
+import { getTideData, getTideDataByLocationId } from '@/utils/api'
 import config from '@/config'
 
 export const useTideStore = defineStore('tide', () => {
@@ -57,6 +57,29 @@ export const useTideStore = defineStore('tide', () => {
     }
   }
 
+  const fetchTideDataByLocationId = async (locationId, name, date) => {
+    loading.value = true
+    error.value = null
+    try {
+      // Format date to YYYYMMDD format (remove hyphens from YYYY-MM-DD)
+      const formattedDate = date ? date.replace(/-/g, '') : new Date().toISOString().split('T')[0].replace(/-/g, '')
+      const data = await getTideDataByLocationId(
+        locationId,
+        name,
+        config.PROJECT_ID,
+        config.PRIVATE_KEY,
+        config.KEY_ID,
+        formattedDate
+      )
+      tideData.value = data
+      isFromCache.value = data.fromCache || false
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : 'Failed to fetch tide data'
+    } finally {
+      loading.value = false
+    }
+  }
+
   const setSelectedDate = (date) => {
     selectedDate.value = date
   }
@@ -87,6 +110,7 @@ export const useTideStore = defineStore('tide', () => {
     lowTides,
     // Actions
     fetchTideData,
+    fetchTideDataByLocationId,
     setSelectedDate,
     setLocation,
     clearError

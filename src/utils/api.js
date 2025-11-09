@@ -167,6 +167,61 @@ const fetchTideData = async (options) => {
 }
 
 /**
+ * Fetch tide data directly using location ID (skips POI lookup)
+ */
+const fetchTideDataByLocationId = async (options) => {
+  const { locationId, locationName, projectId, privateKey, keyId, date } = options
+
+  try {
+    // Step 1: Check cache first
+    const cachedData = getCachedTideData(locationId, date)
+    if (cachedData) {
+      cachedData.locationName = locationName
+      cachedData.locationId = locationId
+      cachedData.fromCache = true
+      return cachedData
+    }
+
+    // Step 2: Generate JWT token for tide API
+    const token = await generateJWT(projectId, privateKey, keyId)
+
+    // Build request URL for tide data
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5174'
+    let url = `${baseUrl}${TIDE_ENDPOINT}?location=${locationId}`
+    if (date) {
+      url += `&date=${date}`
+    }
+
+    // Make API request
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error(`Tide API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    // Step 3: Save to cache
+    saveTideDataToCache(locationId, date, data)
+
+    // Add location info to response
+    data.locationName = locationName
+    data.locationId = locationId
+    data.fromCache = false
+
+    return data
+  } catch (error) {
+    throw error
+  }
+}
+
+/**
  * Get tide data with provided credentials
  */
 const getTideData = async (lat, lon, projectId, privateKey, keyId, date) => {
@@ -180,4 +235,18 @@ const getTideData = async (lat, lon, projectId, privateKey, keyId, date) => {
   })
 }
 
-export { fetchTideData, getTideData, getLocationId }
+/**
+ * Get tide data directly using location ID
+ */
+const getTideDataByLocationId = async (locationId, locationName, projectId, privateKey, keyId, date) => {
+  return fetchTideDataByLocationId({
+    locationId,
+    locationName,
+    projectId,
+    privateKey,
+    keyId,
+    date
+  })
+}
+
+export { fetchTideData, getTideData, getLocationId, getTideDataByLocationId }

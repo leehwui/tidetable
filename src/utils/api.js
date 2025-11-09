@@ -69,16 +69,20 @@ const saveTideDataToCache = (locationId, date, data) => {
  */
 const getLocationId = async (lat, lon, projectId, privateKey, keyId) => {
   try {
+    // Generate JWT token
+    const token = await generateJWT(projectId, privateKey, keyId)
+
     // Build request URL for geo lookup - use actual QWeather endpoint
     const baseUrl = 'https://pd78kymwkm.re.qweatherapi.com'
     // Format coordinates with 2 decimal places precision
     const location = `${parseFloat(lon).toFixed(2)},${parseFloat(lat).toFixed(2)}`
     const url = `${baseUrl}${GEO_ENDPOINT}?location=${location}&type=TSTA`
 
-    // Make API request (POI endpoint doesn't require Authorization header)
+    // Make API request with Authorization header
     const response = await fetch(url, {
       method: 'GET',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     })

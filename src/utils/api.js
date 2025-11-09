@@ -73,7 +73,7 @@ const getLocationId = async (lat, lon, projectId, privateKey, keyId) => {
     const token = await generateJWT(projectId, privateKey, keyId)
 
     // Build request URL for geo lookup - use actual QWeather endpoint
-    const baseUrl = 'https://pd78kymwkm.re.qweatherapi.com'
+    const baseUrl = 'https://tidetable.tangerinesoft.cn'
     // Format coordinates with 2 decimal places precision
     const location = `${parseFloat(lon).toFixed(2)},${parseFloat(lat).toFixed(2)}`
     const url = `${baseUrl}${GEO_ENDPOINT}?location=${location}&type=TSTA`
@@ -130,7 +130,7 @@ const fetchTideData = async (options) => {
     const token = await generateJWT(projectId, privateKey, keyId)
 
     // Build request URL for tide data - use actual QWeather endpoint
-    const baseUrl = 'https://pd78kymwkm.re.qweatherapi.com'
+    const baseUrl = 'https://tidetable.tangerinesoft.cn'
     let url = `${baseUrl}${TIDE_ENDPOINT}?location=${locationId}`
     if (date) {
       url += `&date=${date}`

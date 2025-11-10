@@ -11,6 +11,7 @@ export const useTideStore = defineStore('tide', () => {
   const selectedDate = ref(new Date().toISOString().split('T')[0])
   const latitude = ref(null)
   const longitude = ref(null)
+  const locationId = ref(null)
   const locationName = ref('Unknown Location')
   const isFromCache = ref(false)
 
@@ -50,6 +51,9 @@ export const useTideStore = defineStore('tide', () => {
       isFromCache.value = data.fromCache || false
       latitude.value = lat
       longitude.value = lon
+      locationId.value = data.locationId || null
+      locationName.value = data.locationName || 'Unknown Location'
+      return data
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch tide data'
     } finally {
@@ -57,14 +61,14 @@ export const useTideStore = defineStore('tide', () => {
     }
   }
 
-  const fetchTideDataByLocationId = async (locationId, name, date) => {
+  const fetchTideDataByLocationId = async (locId, name, date) => {
     loading.value = true
     error.value = null
     try {
       // Format date to YYYYMMDD format (remove hyphens from YYYY-MM-DD)
       const formattedDate = date ? date.replace(/-/g, '') : new Date().toISOString().split('T')[0].replace(/-/g, '')
       const data = await getTideDataByLocationId(
-        locationId,
+        locId,
         name,
         config.PROJECT_ID,
         config.PRIVATE_KEY,
@@ -73,6 +77,9 @@ export const useTideStore = defineStore('tide', () => {
       )
       tideData.value = data
       isFromCache.value = data.fromCache || false
+      locationId.value = locId
+      locationName.value = name
+      return data
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to fetch tide data'
     } finally {
@@ -102,6 +109,7 @@ export const useTideStore = defineStore('tide', () => {
     selectedDate,
     latitude,
     longitude,
+    locationId,
     locationName,
     isFromCache,
     // Computed

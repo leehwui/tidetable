@@ -9,7 +9,7 @@
       <!-- City Selector Section -->
       <section class="city-selector-section">
         <div class="selector-group">
-          <select v-model="selectedStationId" class="city-select" @change="onCityChange">
+          <select v-model="tideStore.locationId" class="city-select" @change="onCityChange">
             <option value="">选择潮汐站...</option>
             <option v-for="station in tideStations" :key="station.id" :value="station.id">
               {{ station.name }}
@@ -21,12 +21,10 @@
         </div>
         <div v-if="tideStore.locationName" class="location-display">
           <span class="location-icon">📍</span>
-          <div class="location-details">
-            <p class="location-name">{{ tideStore.locationName }}</p>
-            <p class="coordinates" v-if="tideStore.latitude && tideStore.longitude">
-              {{ tideStore.latitude.toFixed(4) }}°, {{ tideStore.longitude.toFixed(4) }}°
-            </p>
-          </div>
+          <p class="location-name">{{ tideStore.locationName }}</p>
+          <p class="coordinates" v-if="tideStore.latitude && tideStore.longitude">
+            {{ tideStore.latitude.toFixed(4) }}°, {{ tideStore.longitude.toFixed(4) }}°
+          </p>
         </div>
       </section>
 
@@ -96,7 +94,6 @@ import tideStationsData from '@/data/tide-stations.json'
 
 const tideStore = useTideStore()
 const tideStations = ref([])
-const selectedStationId = ref('')
 
 onMounted(() => {
   tideStations.value = tideStationsData
@@ -111,10 +108,13 @@ const getCurrentLocation = async () => {
   navigator.geolocation.getCurrentPosition(
     async (position) => {
       const { latitude, longitude } = position.coords
-      // Clear the select input when using current location
-      selectedStationId.value = ''
-      tideStore.setLocation(latitude, longitude, 'Current Location')
-      await tideStore.fetchTideData(latitude, longitude, tideStore.selectedDate)
+      try {
+        // Fetch tide data which returns location ID and name
+        await tideStore.fetchTideData(latitude, longitude, tideStore.selectedDate)
+        // locationId and locationName are automatically updated in the store
+      } catch (error) {
+        console.error('Error fetching tide data:', error)
+      }
     },
     (error) => {
       console.error('Geolocation error:', error)
@@ -124,10 +124,10 @@ const getCurrentLocation = async () => {
 }
 
 const onCityChange = async () => {
-  if (!selectedStationId.value) {
+  if (!tideStore.locationId) {
     return
   }
-  const station = tideStations.value.find(s => s.id === selectedStationId.value)
+  const station = tideStations.value.find(s => s.id === tideStore.locationId)
   if (station) {
     tideStore.setLocation(station.lat, station.lon, station.name)
     // Use location ID directly, skip POI endpoint
@@ -202,12 +202,13 @@ const formatTime = (fxTime) => {
 
 .city-select {
   flex: 1;
-  padding: 12px;
+  padding: 16px 12px;
   border: 2px solid #ddd;
   border-radius: 8px;
   font-size: 1em;
   cursor: pointer;
   transition: border-color 0.3s;
+  min-height: 50px;
 }
 
 .city-select:hover {
@@ -223,38 +224,30 @@ const formatTime = (fxTime) => {
 .location-display {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding-top: 15px;
+  gap: 12px;
+  padding-top: 12px;
   border-top: 1px solid #eee;
-}
-
-.location-info {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex: 1;
+  margin-top: 12px;
 }
 
 .location-icon {
-  font-size: 2em;
-}
-
-.location-details {
-  display: flex;
-  flex-direction: column;
+  font-size: 1.5em;
+  flex-shrink: 0;
 }
 
 .location-name {
-  font-size: 1.2em;
+  font-size: 1em;
   font-weight: bold;
   color: #333;
   margin: 0;
+  flex-shrink: 0;
 }
 
 .coordinates {
-  font-size: 0.9em;
+  font-size: 0.85em;
   color: #666;
-  margin: 5px 0 0 0;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .btn-location {
